@@ -2,30 +2,33 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; // Render sets this dynamically
 
-// Trust proxy headers for deployment platforms
 app.set('trust proxy', true);
 
-// Tell Express to serve static files from the 'public' folder
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Log the IP and then serve the HTML file
-app.get('/', (req, res) => {
+// FIX: Put the tracking route FIRST before serving static files
+app.get('/', (req, res, next) => {
     const visitorIp = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const timestamp = new Date().toISOString();
     const visitorName = req.query.name || 'Unknown Visitor';
 
     const logLine = `[${timestamp}] Name: ${visitorName} | IP: ${visitorIp}\n`;
 
+    // This prints it directly into your Render Logs tab screen
+    console.log(logLine);
+
+    // This saves it to a file on Render's temporary server
     fs.appendFile(path.join(__dirname, 'log.txt'), logLine, (err) => {
         if (err) console.error('Error writing to log file', err);
     });
 
-    // Send the index.html file to the browser
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    // Move along to serve the page
+    next();
 });
 
+// Serve the static files from the public folder
+app.use(express.static(path.join(__dirname, 'public')));
+
 app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
